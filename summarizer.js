@@ -4,7 +4,16 @@ const nlp = winkNLP(model);
 var nlpu = require('wink-nlp-utils');
 
 var summarizer = Object.create( null );
-
+// ### summarizeText
+/**
+ *
+ * Summarizes the given text to a specified number of sentences
+ *
+ * @param  {string} text           Text to be summarized
+ * @param  {number} countSentences Number of sentences the text should be summarized to
+ * @return {array}                 The summarized sentences array
+ * @private
+*/
 
 summarizer.summarizeText = function (text, countSentences) {
   if ( typeof text !== 'string' ) {
