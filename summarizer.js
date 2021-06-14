@@ -3,77 +3,79 @@ const model = require('wink-eng-lite-web-model');
 const nlp = winkNLP(model);
 var nlpu = require('wink-nlp-utils');
 
-function summarizeText(text, countSentences) {
-	// Removing Square Brackets and Extra Spaces
-	text = text.replace(/\[[0-9]*\]/gi, ' ');
-	text = text.replace(/\s+/gi, ' ');
+var summarizer = Object.create( null );
 
-	// Removing special characters and digits
-	let formatted_text = text.replace(/[^a-zA-Z]/gi, ' ');
-	formatted_text = formatted_text.replace(/\s+/gi, ' ');
 
-	// Converting text to list of sentences
-	const doc = nlp.readDoc(text);
-	sentences_list = doc.sentences().out();
+summarizer.summarizeText = function (text, countSentences) {
+  if ( typeof text !== 'string' ) {
+    throw Error( `summarizer: expecting a valid Javascript string, instead found "${typeof text}".`);
+  }
+  if ( typeof countSentences !== 'number') {
+    throw Error( `summarizer: expecting a valid Javascript integer, instead found "${typeof countSentences}".`);
+  }
+  if ( countSentences < 0 ) {
+    throw Error( 'summarizer: expecting a positive integer.');
+  }
+  // Removing Square Brackets and Extra Spaces
+  var queryText = text.replace(/\[[0-9]*\]/gi, ' ');
+  queryText = text.replace(/\s+/gi, ' ');
 
-	// Tokenizing the text
-	let tokenized_words = nlp.readDoc(formatted_text).tokens().out();
-	tokenized_words = nlpu.tokens.removeWords(tokenized_words);
+  // Removing special characters and digits
+  var formattedText = queryText.replace(/[^a-zA-Z]/gi, ' ');
+  formattedText = formattedText.replace(/\s+/gi, ' ');
 
-	word_frequences = {};
+  // Converting text to list of sentences
+  const doc = nlp.readDoc(text);
+  var sentencesList = doc.sentences().out();
 
-	// The maximum frequency of a word
-	let max_frequency = 0;
+  // Tokenizing the text
+  var tokenizedWords = nlp.readDoc(formattedText).tokens().out();
+  tokenizedWords = nlpu.tokens.removeWords(tokenizedWords);
 
-	// Finding frequency of occurence of each word
-	tokenized_words.forEach((element) => {
-		if (element in word_frequences) {
-			word_frequences[element] += 1;
-		} else {
-			word_frequences[element] = 1;
-		}
-		max_frequency = Math.max(word_frequences[element], max_frequency);
-	});
+  var wordFrequences = {};
 
-	// Calculation of weighted frequency for each word
-	Object.keys(word_frequences).forEach((element) => {
-		word_frequences[element] = word_frequences[element] / max_frequency;
-	});
+  // The maximum frequency of a word
+  var maxFrequency = 0;
 
-	sentences_scores = {};
+  // Finding frequency of occurence of each word
+  tokenizedWords.forEach((element) => {
+    if (element in wordFrequences) {
+      wordFrequences[element] += 1;
+    } else {
+      wordFrequences[element] = 1;
+    }
+    maxFrequency = Math.max(wordFrequences[element], maxFrequency);
+  });
 
-	// Assigning score to each sentence
-	sentences_list.forEach((element) => {
-		let elementWords = nlp.readDoc(element).tokens().out();
-		elementWords.forEach((word) => {
-			if (Object.keys(word_frequences).includes(word)) {
-				if (element in sentences_scores) {
-					sentences_scores[element] += word_frequences[word];
-				} else {
-					sentences_scores[element] = word_frequences[word];
-				}
-			}
-		});
-	});
+  // Calculation of weighted frequency for each word
+  Object.keys(wordFrequences).forEach((element) => {
+    wordFrequences[element] /= maxFrequency;
+  });
 
-	// Converting sentences with score to array and sorting it in descending order
-	let items = Object.keys(sentences_scores).map(function (key) {
-		return [key, sentences_scores[key]];
-	});
-	items.sort(function (first, second) {
-		return second[1] - first[1];
-	});
-	return items.slice(0, Math.min(items.length, countSentences));
-}
+  var sentenceScores = {};
 
-document.getElementById('submit').addEventListener('click', function () {
-	const countSentences = document.getElementById('sentences-count').value;
-	const text = document.getElementById('text').value;
-	const ans = summarizeText(text, countSentences);
-	let resultHtml = `<h2>Result:</h2>`;
+  // Assigning score to each sentence
+  sentencesList.forEach((element) => {
+    const elementWords = nlp.readDoc(element).tokens().out();
+    elementWords.forEach((word) => {
+      if (Object.keys(wordFrequences).includes(word)) {
+        if (element in sentenceScores) {
+          sentenceScores[element] += wordFrequences[word];
+        } else {
+          sentenceScores[element] = wordFrequences[word];
+        }
+      }
+    });
+  });
 
-	for (let i = 0; i < ans.length; i++) {
-		resultHtml += `<p>${ans[i][0]}</p>`;
-	}
-	document.querySelector('.result').innerHTML = resultHtml;
-});
+  // Converting sentences with score to array and sorting it in descending order
+  var items = Object.keys(sentenceScores).map(function (key) {
+    return [ key, sentenceScores[key] ];
+  });
+  items.sort(function (first, second) {
+    return second[1] - first[1];
+  });
+  return items.slice(0, Math.min(items.length, countSentences));
+};
+
+module.exports = summarizer;
